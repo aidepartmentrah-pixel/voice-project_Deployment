@@ -1,6 +1,6 @@
-# SHA-256 checksums — voice-project release package
-# Generated: 2026-07-13T07:32:45Z
-# Verify with: sha256sum -c release_hashes.txt (run from inside release/)
+# SHA-256 checksums — voice-project release package (0.1.0 / image tag 1.0.0)
+# Generated: 2026-07-15T11:42:29Z
+# Verify with: sha256sum -c release_hashes.txt (run from inside release/0.1.0/)
 
 7fb11d467766d5ac05cae128fabe3fa022748486fbabfdd54a1302bdb46f3582 *./assets/whisper-model-medium.zip
 e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855 *./backups/.gitkeep
