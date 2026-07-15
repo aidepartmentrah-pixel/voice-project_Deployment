@@ -1,0 +1,114 @@
+# `name:` pins an explicit Compose project name so this never collides with
+# another project on a shared Docker host that happens to use the same
+# directory name for its own compose file (confirmed happening with
+# release/compose/ during testing — see that file's comment for detail).
+name: voice-project-dev
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${DB_SA_PASSWORD}
+      MSSQL_PID: Express
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+      - ./backups:/var/opt/mssql/backup
+      # Read-only access to the SQL Server Database Package so
+      # verify_installation.sh/backup_database.sh/restore_database.sh can
+      # exec sqlcmd against it directly. database/ and scripts/ are mounted
+      # as siblings under /opt/dbpkg/ to preserve the same relative-path
+      # relationship verify_database.sql's ":r ../database/..." includes
+      # already assume (this container has none of our files otherwise —
+      # it's the untouched official Microsoft image).
+      - ./database:/opt/dbpkg/database:ro
+      - ./scripts:/opt/dbpkg/scripts:ro
+    ports:
+      # Exposed for optional GUI access (DBeaver/SSMS/Azure Data Studio) —
+      # not required for the app itself, which reaches sqlserver over the
+      # internal Compose network.
+      - "${DB_PORT:-1433}:1433"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$DB_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  db-init:
+    build:
+      context: .
+      dockerfile: db-init/Dockerfile
+    environment:
+      DB_SERVER: sqlserver
+      DB_PORT: 1433
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_SA_PASSWORD: ${DB_SA_PASSWORD}
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    restart: "no"
+
+  whisper:
+    build:
+      context: ./python-service
+      dockerfile: Dockerfile
+    environment:
+      # WHISPER_MODEL_PATH takes priority in whisper_service.py — set once
+      # ./assets/whisper-model-medium/ exists (run scripts/export_whisper_model.sh
+      # first). HF_HUB_OFFLINE is a defense-in-depth safety net: even if
+      # WHISPER_MODEL_PATH were unset, this makes huggingface_hub fail fast
+      # with a clear local error instead of hanging on a DNS lookup.
+      WHISPER_MODEL: ${WHISPER_MODEL:-medium}
+      WHISPER_MODEL_PATH: /models/whisper-medium
+      HF_HUB_OFFLINE: "1"
+    volumes:
+      - ./assets/whisper-model-medium:/models/whisper-medium:ro
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: .
+      dockerfile: node-backend/Dockerfile
+    environment:
+      DB_SERVER: sqlserver
+      DB_PORT: 1433
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      WHISPER_SERVICE_URL: http://whisper:5001/transcribe
+    volumes:
+      - uploads_data:/app/node-backend/uploads
+    depends_on:
+      db-init:
+        condition: service_completed_successfully
+      whisper:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/mode-check', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  sqlserver_data:
+  uploads_data:

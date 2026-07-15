@@ -12,3 +12,17 @@ node-backend/uploads/
 # OS files
 .DS_Store
 Thumbs.db
+
+# TLS certs and local DB backups — generated per-deployment, never commit
+nginx/certs/*.pem
+release/compose/nginx/certs/*.pem
+/backups/
+release/backups/*.bak
+
+# Docker/release build output
+release/docker-images/*.tar
+
+# Whisper model binaries — multi-GB, fetched/exported via scripts, never commit
+assets/whisper-model-medium/*.bin
+release/assets/*.zip
+

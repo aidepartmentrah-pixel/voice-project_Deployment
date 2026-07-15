@@ -12,6 +12,7 @@ const jwt       = require("jsonwebtoken");
 const { parseVoiceToFields, splitBatchTranscript } = require("./voiceParser");
 
 const JWT_SECRET = process.env.JWT_SECRET || "bb-hospital-secret-2024-change-in-prod";
+const WHISPER_SERVICE_URL = process.env.WHISPER_SERVICE_URL || "http://whisper:5001/transcribe";
 
 const app = express();
 app.use(cors());
@@ -23,6 +24,16 @@ const upload = multer({ dest: "uploads/" });
 // ── DB (optional — won't crash if unavailable) ──────────────────
 let dbReady = false;
 let getPool, sql;
+
+// Retries indefinitely on connection failure instead of trying once and
+// giving up forever — a single failed attempt at startup (e.g. SQL Server
+// still initializing, or a container restarted independently of Docker
+// Compose's own dependency ordering) used to leave dbReady=false for the
+// rest of the process's life, requiring someone to notice and manually
+// restart the backend container. Confirmed happening in practice: a
+// laptop sleep/wake cycle restarted this container before SQL Server was
+// ready to accept connections, and nothing ever retried.
+const DB_RETRY_DELAY_MS = 10000;
 
 async function initDB() {
   try {
@@ -134,7 +145,8 @@ async function initDB() {
 
   } catch (err) {
     dbReady = false;
-    console.warn("⚠️  Database not available — voice extraction will still work, saving disabled");
+    console.warn(`⚠️  Database not available (${err.message}) — voice extraction still works, saving disabled. Retrying in ${DB_RETRY_DELAY_MS / 1000}s...`);
+    setTimeout(initDB, DB_RETRY_DELAY_MS);
   }
 }
 initDB();
@@ -287,7 +299,7 @@ app.post("/upload", requireAuth, upload.single("audio"), async (req, res) => {
       contentType: "audio/webm",
     });
 
-    const whisperRes = await axios.post("http://localhost:5001/transcribe", formData, {
+    const whisperRes = await axios.post(WHISPER_SERVICE_URL, formData, {
       headers: formData.getHeaders(),
       timeout: 300000,
     });
@@ -353,7 +365,7 @@ app.post("/upload/batch", requireAuth, upload.single("audio"), async (req, res) 
       contentType: "audio/webm",
     });
 
-    const whisperRes = await axios.post("http://localhost:5001/transcribe", formData, {
+    const whisperRes = await axios.post(WHISPER_SERVICE_URL, formData, {
       headers: formData.getHeaders(),
       timeout: 300000,
     });

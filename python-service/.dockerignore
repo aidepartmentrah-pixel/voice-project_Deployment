@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+temp_input.webm
+temp_output.wav
+.git/
+.gitignore

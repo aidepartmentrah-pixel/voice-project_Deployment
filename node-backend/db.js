@@ -1,11 +1,20 @@
 require("dotenv").config();
 const sql = require("mssql");
 
+const REQUIRED_ENV_VARS = ["DB_SERVER", "DB_NAME", "DB_USER", "DB_PASSWORD"];
+const missing = REQUIRED_ENV_VARS.filter((name) => !process.env[name]);
+if (missing.length > 0) {
+  throw new Error(
+    `Missing required database environment variable(s): ${missing.join(", ")}. ` +
+    `Set them in node-backend/.env (see .env.example).`
+  );
+}
+
 const config = {
-  server:   process.env.DB_SERVER   || "ELSAMRA-103080",
-  database: process.env.DB_NAME     || "BloodBankDB",
-  user:     process.env.DB_USER     || "bloodbank_user",
-  password: process.env.DB_PASSWORD || "",
+  server:   process.env.DB_SERVER,
+  database: process.env.DB_NAME,
+  user:     process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
   options: {
     trustServerCertificate: true,
     enableArithAbort: true,

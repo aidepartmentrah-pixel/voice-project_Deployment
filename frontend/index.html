@@ -1681,7 +1681,13 @@
 // ═══════════════════════════════════════════════════════
 // AUTH
 // ═══════════════════════════════════════════════════════
-const API = 'http://localhost:3000';
+// Relative — the backend serves this same page (directly, or via the nginx
+// reverse proxy in the Dockerized deployment), so API calls should go to
+// whatever origin the browser actually loaded the page from. A hardcoded
+// "http://localhost:3000" broke as soon as the app was reachable via any
+// hostname/IP other than literally "localhost" (which is also no longer
+// where the backend listens at all once nginx is in front of it).
+const API = '';
 let currentUser = null;
 
 function getToken() { return localStorage.getItem('bb_token'); }
@@ -1920,7 +1926,7 @@ setInterval(() => {
 
 // Check DB/mode status
 function checkMode() {
-  fetch('http://localhost:3000/mode-check')
+  fetch('/mode-check')
     .then(r => r.json())
     .then(d => {
       if (!d.dbReady) document.getElementById('dbBanner').classList.add('show');
@@ -2123,7 +2129,7 @@ async function stopRec() {
     try {
       // ── BATCH MODE ──
       if (batchMode) {
-        const res  = await fetch('http://localhost:3000/upload/batch', { method:'POST', body:fd, headers:{'Authorization':'Bearer '+getToken()} });
+        const res  = await fetch('/upload/batch', { method:'POST', body:fd, headers:{'Authorization':'Bearer '+getToken()} });
         const data = await res.json();
         document.getElementById('overlay').classList.remove('show');
         if (data.error) { setStatus('', '❌ ' + data.error); return; }
@@ -2138,7 +2144,7 @@ async function stopRec() {
       }
 
       // ── SINGLE MODE ──
-      const res  = await fetch('http://localhost:3000/upload', { method:'POST', body:fd, headers:{'Authorization':'Bearer '+getToken()} });
+      const res  = await fetch('/upload', { method:'POST', body:fd, headers:{'Authorization':'Bearer '+getToken()} });
       const data = await res.json();
       document.getElementById('overlay').classList.remove('show');
       if (data.error) { setStatus('', '❌ ' + data.error); return; }

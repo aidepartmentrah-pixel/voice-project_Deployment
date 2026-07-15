@@ -1,0 +1,17 @@
+# Applies to every image build using the repo root as context (node-backend
+# and db-init — see their Dockerfiles for why each needs root context).
+# NOTE: db-init also needs database/ and scripts/, so those are NOT excluded
+# here even though node-backend itself doesn't use them.
+
+.git/
+.gitignore
+node-backend/node_modules/
+node-backend/.env
+node-backend/certs/
+node-backend/uploads/
+python-service/venv/
+python-service/__pycache__/
+docs/
+release/
+*.md
+.vscode/

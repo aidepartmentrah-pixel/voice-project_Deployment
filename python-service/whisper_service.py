@@ -8,7 +8,34 @@ app = Flask(__name__)
 # ── Model ────────────────────────────────────────────────────────
 # medium = best balance of speed vs accuracy for medical/Arabic names
 # large-v2 = most accurate but very slow on CPU
-model = WhisperModel("medium", device="cpu", compute_type="int8")
+#
+# WHISPER_MODEL_PATH (preferred, offline-safe): a local directory containing
+# pre-downloaded CTranslate2 model files (see scripts/export_whisper_model.sh
+# and docker-compose.yml's whisper volume mount). When set, faster_whisper
+# loads directly from disk and never contacts huggingface.co — this is what
+# every real deployment (online or offline) should use.
+#
+# WHISPER_MODEL (fallback, requires internet): a bare model size/name like
+# "medium" — faster_whisper resolves this via huggingface_hub, downloading
+# on first use. Only safe when the container has internet access (e.g. quick
+# local iteration on the Build Workstation without staging the model asset
+# first). This is NOT what ships in the offline release.
+WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "medium")
+WHISPER_MODEL_PATH = os.environ.get("WHISPER_MODEL_PATH", "").strip()
+
+if WHISPER_MODEL_PATH:
+    if not os.path.isdir(WHISPER_MODEL_PATH):
+        raise RuntimeError(
+            f"WHISPER_MODEL_PATH={WHISPER_MODEL_PATH!r} does not exist or is not a "
+            "directory. Run scripts/export_whisper_model.sh and mount the resulting "
+            "asset, or unset WHISPER_MODEL_PATH to fall back to name-based download "
+            "(requires internet)."
+        )
+    model_source = WHISPER_MODEL_PATH
+else:
+    model_source = WHISPER_MODEL
+
+model = WhisperModel(model_source, device="cpu", compute_type="int8")
 
 # ── Initial prompt ───────────────────────────────────────────────
 # Short keyword list only — NO full sentences or patient data
@@ -179,5 +206,8 @@ def transcribe():
 
 
 if __name__ == "__main__":
-    print("✅ Whisper service running on port 5001")
-    app.run(port=5001, debug=False, use_reloader=False)
+    print(f"✅ Whisper service running on port 5001 (model_source={model_source})")
+    # host="0.0.0.0" — must be reachable from other containers on the
+    # Docker Compose network (Flask's default 127.0.0.1 only accepts
+    # connections from inside this same container).
+    app.run(host="0.0.0.0", port=5001, debug=False, use_reloader=False)
