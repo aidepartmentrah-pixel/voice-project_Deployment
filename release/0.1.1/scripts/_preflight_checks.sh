@@ -43,9 +43,11 @@ run_preflight_checks() {
   done
 
   if [ -z "${JWT_SECRET:-}" ]; then
-    echo "WARNING: JWT_SECRET is empty in compose/.env — the backend will fall" >&2
-    echo "         back to an insecure hardcoded default. Set a real random" >&2
-    echo "         value before going to production (this is not a hard failure)." >&2
+    echo "ERROR: JWT_SECRET is empty in compose/.env." >&2
+    echo "       As of release 1.1.0 the backend exits at startup if this is" >&2
+    echo "       unset (no more silent fallback to the old hardcoded default)." >&2
+    echo "       Set a real random value before running this script." >&2
+    fail=1
   fi
 
   if [ "$fail" -ne 0 ]; then

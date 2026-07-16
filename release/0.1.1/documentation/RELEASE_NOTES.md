@@ -39,6 +39,23 @@ install.
 `express-rate-limit`; baked into `voice-project-backend:1.1.0` at build
 time — no action needed on the offline host beyond loading the new image.
 
+### Deployment-fork fix bundled in this release: nginx WebSocket proxying
+
+The chat feature above requires a WebSocket connection (the frontend's
+Socket.IO client is hardcoded to `transports: ['websocket']`, no
+long-polling fallback). `compose/nginx/nginx.conf`'s reverse-proxy config
+predates chat and never set the `Upgrade`/`Connection` headers nginx needs
+to relay a WebSocket upgrade — without them nginx silently downgrades the
+handshake to a plain HTTP request, the upgrade never happens, and chat
+fails to connect with no error surfaced anywhere (not even in the backend
+logs, since the connection never reaches Socket.IO). Found by actually
+testing chat after this release's first local install. Fixed by adding the
+standard `map $http_upgrade $connection_upgrade` block and the
+corresponding `proxy_set_header Upgrade`/`Connection` lines to the `location
+/` block. The `nginx` Docker image itself is unchanged (still
+`nginx:1.27-alpine`) — this is a config-file fix only, so no new image tar
+was needed.
+
 ### Merge notes (local deployment fork only)
 
 This fork's Docker/deployment-specific changes (relative frontend API paths,

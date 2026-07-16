@@ -25,4 +25,5 @@ release/*/docker-images/*.tar
 # Whisper model binaries — multi-GB, fetched/exported via scripts, never commit
 assets/whisper-model-medium/*.bin
 release/*/assets/*.zip
+release/*/assets/whisper-model-medium/*.bin
 

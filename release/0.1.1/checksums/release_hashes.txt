@@ -1,5 +1,5 @@
 # SHA-256 checksums — voice-project release package (0.1.1 / image tag 1.1.0)
-# Generated: 2026-07-15T13:50:42Z
+# Generated: 2026-07-16T12:49:40Z
 # Verify with: sha256sum -c release_hashes.txt (run from inside release/0.1.1/)
 
 7fb11d467766d5ac05cae128fabe3fa022748486fbabfdd54a1302bdb46f3582 *./assets/whisper-model-medium.zip
@@ -9,7 +9,7 @@ e3d1884f6ff37ed19af269f9b93a3df4afbc4ee54ec4cc7c8fb124485192de15 *./compose/.env
 2a59b55c0843d1b5bd8d1762dd542c5aa921c184d0afaf522858d1acee177131 *./compose/docker-compose.yml
 544555d20cd7390d6478ad0eadcf368fe0bb18179042ce13a7fcb03697c9d5c7 *./compose/nginx/certs/README.md
 f8a86f9fa72d89218fddb7a6f8844c3297aefcfddf16f9f04ae1184404cc8207 *./compose/nginx/generate_self_signed_cert.sh
-c33d486144df1f135750dd677a1550f4798e437f1d59baa617359f9fa1583204 *./compose/nginx/nginx.conf
+c79da6459389e29aa078973048f80d95060220529a5c434b6273f39508ab83ea *./compose/nginx/nginx.conf
 53308292c4573aa48458d682ec0894c0600d1f32d4cc70cef67536a2bcca098b *./database/sqlserver/install/001_create_database.sql
 5447fde54b9ce22b82dae3f45d39c45f1656dedc0d9086fae0abfd6764ff721a *./database/sqlserver/install/002_create_schema.sql
 aa277b6cad1e91a991ccb1422e31e582076a13fa3e957b246040ff633a9058fb *./database/sqlserver/install/003_create_indexes.sql
@@ -58,4 +58,4 @@ e8463434e723632a1e3e7068e339393e94b6e92ca4944a1ada4c93c66f4cd9e0 *./scripts/show
 9715ea8691150081a91763bce7552f558e565b92a16a94a0773d1502d076724f *./scripts/update_offline.sh
 38dc23d00ede89d2f70a2b824a945da4ae5659fc467a7d8a34414f402f82c743 *./scripts/verify_database.sql
 803f8834bedd605c4077d7680b6351d5d230f610c8adea1106ae70b3b75d102c *./scripts/verify_installation.sh
-f397824e19176a5bf522340880ef97dc24742dfea284e4dd80b0d7e7ae9ca027 *./scripts/_preflight_checks.sh
+6edc61df58e35d512d6888c3e84181dec168fbd7b4a83bc9a9aa7338e70abfbb *./scripts/_preflight_checks.sh
