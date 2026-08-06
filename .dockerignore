@@ -9,6 +9,12 @@ node-backend/node_modules/
 node-backend/.env
 node-backend/certs/
 node-backend/uploads/
+node-backend/config/
+# Dev-only synthetic eDelphyn test fixtures (hardcoded dev machine name +
+# plaintext test credentials in setup_test_edelphyn.sql) — never bake these
+# into a production image / offline release. See database/sqlserver/ for
+# the actual shippable database package; this is not part of it.
+node-backend/edelphyn-test-db/
 python-service/venv/
 python-service/__pycache__/
 docs/
