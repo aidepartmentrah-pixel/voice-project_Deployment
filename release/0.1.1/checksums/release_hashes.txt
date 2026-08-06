@@ -1,5 +1,5 @@
 # SHA-256 checksums — voice-project release package (0.1.1 / image tag 1.1.0)
-# Generated: 2026-07-16T12:49:40Z
+# Generated: 2026-07-22T11:10:16Z
 # Verify with: sha256sum -c release_hashes.txt (run from inside release/0.1.1/)
 
 7fb11d467766d5ac05cae128fabe3fa022748486fbabfdd54a1302bdb46f3582 *./assets/whisper-model-medium.zip
@@ -31,7 +31,7 @@ b2c680d3d13ff6cde47c43fd2e72f750a3a509afd43a26b93e7fd01a0a8b787e *./database/sql
 52ea6c9a9225e253ceb5c41dec7a32610a2b8516c4fac0713f0c4e4d01d6b0f4 *./database/sqlserver/validation/validate_lookup_data.sql
 71398ccf0c4bb1e535d55cc0827c8d286fed3c98c0b7256ce7f96c37dd7adc87 *./database/sqlserver/validation/validate_tables.sql
 5a91c15018fc7d9608fb10c7506f4c10b8443561afe23001ad4edeae9ad0658d *./database/sqlserver/validation/validate_users.sql
-afb149bfd0f43e66adb065164613e4aed149fafe33ff43a618c73705270502aa *./docker-images/backend.tar
+43b2c41010c227a15820f3a0e11f048cbb7e160331ae93350c766b2676b33e6e *./docker-images/backend.tar
 b24c906127510976d6812a6f19b7ce0d98341920582fccd65c239dc39f1f724d *./docker-images/db-init.tar
 6d328d50051d98ea6517c6f9385ad04f3ce89e621b0662b1125ea3f78602af0f *./docker-images/nginx.tar
 731218215a9d65560092c3ce1de39b07a6fc844d50927a9efecaf1942f024893 *./docker-images/sqlserver.tar
@@ -40,10 +40,11 @@ c24ef873e0077d2f8d4186245c720cf0cef4a5ce637b98c8ddfc7047dac1cca0 *./documentatio
 7b8b75657f31ef5a4274aff494e90934a7597643c4ae6242015bc539d5b6f15b *./documentation/INSTALL_OFFLINE.md
 3ed5117839cbf8fa27f09f60b7070f1b55666fd6bf7fa41a86e7ecd6286844e0 *./documentation/LINUX_COMMANDS_REFERENCE.md
 845aac47c54151e66a1c9b16d359691fe1479e3d50d6225ad063cb228a70c2ca *./documentation/PORTAINER_GUIDE.md
-b95d493267d1b0da0bd664fd6439ba9098dfd8729d32483bcde1bc9c6b868e76 *./documentation/RELEASE_NOTES.md
+52a5fdd0198f45a10758837f667fa6983efe842d9c191042f6be037f6d6d7592 *./documentation/RELEASE_NOTES.md
 1d12c422c2d42db1755622c0573c90aea8069ad34d5b391632c03f53c885c6d5 *./documentation/TROUBLESHOOTING.md
 9458102a913115a0e41612c91999856caabe73ab225c522cfca7e6cc468a1d06 *./documentation/UPDATE_OFFLINE.md
 83ced9a288aeda0ac1d4a5f7984e334b0f61f61c4d68a59a079238c2de07a21f *./documentation/VALIDATION_CHECKLIST.md
+6edc61df58e35d512d6888c3e84181dec168fbd7b4a83bc9a9aa7338e70abfbb *./scripts/_preflight_checks.sh
 3b4f4a72a271802e27a135ebf1ff18a405c42d7daa9fbcb0ad99da6a1ca18edb *./scripts/backup_database.sh
 c9d4a1f5e3f8ec18c7930a8e52ddb41c15ad228868a5c0e367f454d346f7532b *./scripts/backup_database.sql
 32cff4b89bfeaaadaf6ff2beb1430e62d1dfdcff1ee8c9e97220487c79ba86cb *./scripts/install_database.ps1
@@ -58,4 +59,3 @@ e8463434e723632a1e3e7068e339393e94b6e92ca4944a1ada4c93c66f4cd9e0 *./scripts/show
 9715ea8691150081a91763bce7552f558e565b92a16a94a0773d1502d076724f *./scripts/update_offline.sh
 38dc23d00ede89d2f70a2b824a945da4ae5659fc467a7d8a34414f402f82c743 *./scripts/verify_database.sql
 803f8834bedd605c4077d7680b6351d5d230f610c8adea1106ae70b3b75d102c *./scripts/verify_installation.sh
-6edc61df58e35d512d6888c3e84181dec168fbd7b4a83bc9a9aa7338e70abfbb *./scripts/_preflight_checks.sh
