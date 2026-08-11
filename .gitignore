@@ -30,3 +30,6 @@ assets/whisper-model-medium/*.bin
 release/*/assets/*.zip
 release/*/assets/whisper-model-medium/*.bin
 
+
+# Packager output — fully generated, never hand-authored
+/release_packager/
