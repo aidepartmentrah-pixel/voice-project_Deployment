@@ -54,19 +54,18 @@ services:
 
   whisper:
     build:
-      context: ./python-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: python-service/Dockerfile
     environment:
-      # WHISPER_MODEL_PATH takes priority in whisper_service.py — set once
-      # ./assets/whisper-model-medium/ exists (run scripts/export_whisper_model.sh
-      # first). HF_HUB_OFFLINE is a defense-in-depth safety net: even if
-      # WHISPER_MODEL_PATH were unset, this makes huggingface_hub fail fast
-      # with a clear local error instead of hanging on a DNS lookup.
+      # WHISPER_MODEL_PATH takes priority in whisper_service.py, and the
+      # model is now baked into the image at this exact path at build time
+      # (see python-service/Dockerfile) — no runtime mount needed. HF_HUB_OFFLINE
+      # is a defense-in-depth safety net: even if WHISPER_MODEL_PATH were
+      # unset, this makes huggingface_hub fail fast with a clear local error
+      # instead of hanging on a DNS lookup.
       WHISPER_MODEL: ${WHISPER_MODEL:-medium}
       WHISPER_MODEL_PATH: /models/whisper-medium
       HF_HUB_OFFLINE: "1"
-    volumes:
-      - ./assets/whisper-model-medium:/models/whisper-medium:ro
     restart: unless-stopped
 
   backend:
