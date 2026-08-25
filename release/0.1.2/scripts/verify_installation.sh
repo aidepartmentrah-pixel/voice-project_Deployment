@@ -35,8 +35,19 @@ else
 fi
 echo
 
-echo "==> Checking backend health through nginx..."
-if curl -sk -o /dev/null -w "%{http_code}" https://localhost/health | grep -q "200"; then
+echo "==> Checking backend health..."
+# Exec into the backend container directly (matching the already-correct
+# database check above, and the backend service's own Compose healthcheck
+# command) rather than a raw `curl https://localhost/...` from the host.
+# This script may be invoked by the RAH Offline Installation Platform,
+# which runs lifecycle scripts as a subprocess of its own backend process
+# — potentially inside a container with its own isolated Docker network,
+# distinct from this host's. A host-network curl that works fine run by
+# hand can silently fail from there even when the app is genuinely
+# healthy, since "localhost" means something different to the caller in
+# that case. docker compose exec reaches the target container directly
+# via the Docker socket regardless of the caller's own network namespace.
+if docker compose exec -T backend node -e "require('http').get('http://localhost:3000/mode-check', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"; then
   echo "==> Backend is reachable and healthy."
 else
   echo "==> BACKEND HEALTH CHECK FAILED." >&2

@@ -16,8 +16,12 @@
   the .bak file lands outside the SQL Server container.
 */
 
-:setvar DB_NAME "BloodBankDB"
-:setvar BACKUP_PATH "/var/opt/mssql/backup/BloodBankDB.bak"
+-- DB_NAME and BACKUP_PATH must be supplied by the caller via -v (see the
+-- usage block above) — no :setvar default here. sqlcmd's :setvar applies
+-- unconditionally, after and over a caller-supplied -v, so a hardcoded
+-- default here would silently discard whatever the real caller passed
+-- (see docs/development/Bugs/Bug 5 — Hardcoded Setvar Override.md in the
+-- Air-Gapped-System-Platform repo).
 
 BACKUP DATABASE [$(DB_NAME)]
 TO DISK = N'$(BACKUP_PATH)'

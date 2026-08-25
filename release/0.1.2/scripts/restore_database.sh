@@ -1,15 +1,26 @@
 #!/usr/bin/env bash
 # restore_database.sh — restores BloodBankDB from a .bak file.
-# Usage: ./restore_database.sh /path/on/host/to/backup.bak
+#
+# Manual run: ./restore_database.sh /path/on/host/to/backup.bak
+# Platform-driven run: set RAH_BACKUP_SOURCE_PATH instead of a positional
+# argument — the RAH Offline Installation Platform's own recovery.py
+# resolves this to a real host path outside this deployment (Backup
+# Isolation Rule), not assumed to already be under ./backups/. See
+# docs/development/Bugs/Bug 3 — Backup Path Contract Not Honored.md in
+# the Air-Gapped-System-Platform repo.
 # WARNING: overwrites the current database. Stop the backend first.
 set -euo pipefail
 
-if [ "$#" -ne 1 ]; then
+if [ -n "${RAH_BACKUP_SOURCE_PATH:-}" ]; then
+  HOST_BACKUP_PATH="$RAH_BACKUP_SOURCE_PATH"
+elif [ "$#" -eq 1 ]; then
+  HOST_BACKUP_PATH="$1"
+else
   echo "Usage: $0 <path-to-backup-on-host>" >&2
+  echo "(or set RAH_BACKUP_SOURCE_PATH in the environment)" >&2
   exit 1
 fi
 
-HOST_BACKUP_PATH="$1"
 RELEASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$RELEASE_DIR/compose"
 [ -f .env ] && { set -a; source .env; set +a; }
@@ -22,13 +33,17 @@ if [ ! -f "$HOST_BACKUP_PATH" ]; then
   exit 1
 fi
 
-# ./backups/ on the host is bind-mounted to /var/opt/mssql/backup inside the
-# sqlserver container (see compose/docker-compose.yml) — translate the path.
 BACKUP_FILENAME="$(basename "$HOST_BACKUP_PATH")"
 CONTAINER_BACKUP_PATH="/var/opt/mssql/backup/${BACKUP_FILENAME}"
 
 echo "==> This will REPLACE the current ${DB_NAME} database. Stopping backend first..."
 docker compose stop backend
+
+# Copy the artifact into the container explicitly rather than assuming it's
+# already visible via the ./backups/ bind mount — true for a manual run
+# using that directory, not guaranteed for a Platform-supplied path outside
+# this deployment.
+MSYS_NO_PATHCONV=1 docker compose cp "$HOST_BACKUP_PATH" "sqlserver:${CONTAINER_BACKUP_PATH}"
 
 # MSYS_NO_PATHCONV=1 is a no-op on real Linux — only matters if this is ever
 # run from Windows Git Bash, where MSYS otherwise mangles the --workdir

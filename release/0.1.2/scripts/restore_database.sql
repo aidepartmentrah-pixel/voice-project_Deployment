@@ -19,8 +19,9 @@
   and adjust the MOVE clauses below to match.
 */
 
-:setvar DB_NAME "BloodBankDB"
-:setvar BACKUP_PATH "/var/opt/mssql/backup/BloodBankDB.bak"
+-- DB_NAME and BACKUP_PATH must be supplied by the caller via -v (see the
+-- usage block above) — no :setvar default here, same reasoning as
+-- backup_database.sql (see Bug 5 in the Air-Gapped-System-Platform repo).
 
 ALTER DATABASE [$(DB_NAME)] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
 GO
