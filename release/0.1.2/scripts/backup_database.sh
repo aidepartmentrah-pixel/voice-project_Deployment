@@ -45,8 +45,14 @@ CONTAINER_BACKUP_FILE="/var/opt/mssql/backup/${DB_NAME}_${TIMESTAMP}.bak"
 # MSYS_NO_PATHCONV=1 is a no-op on real Linux — only matters if this is ever
 # run from Windows Git Bash, where MSYS otherwise mangles the --workdir
 # argument into a Windows-style path and the exec fails outright.
+# -b: sqlcmd only exits non-zero on a real T-SQL error inside -i's script
+# with this flag set -- without it, a failed BACKUP DATABASE statement
+# (e.g. the real WITH COMPRESSION/Express-edition failure this repo hit)
+# still returns exit 0, letting this script proceed to `docker compose cp`
+# a .bak file that was never actually created -- a real, confirmed
+# live failure, 2026-08-25, Pass 4 controlled-failure qualification.
 MSYS_NO_PATHCONV=1 "${COMPOSE[@]}" exec -T --workdir /opt/dbpkg/scripts sqlserver /opt/mssql-tools18/bin/sqlcmd \
-  -S localhost -U sa -P "$DB_SA_PASSWORD" -C \
+  -S localhost -U sa -P "$DB_SA_PASSWORD" -C -b \
   -v DB_NAME="$DB_NAME" -v BACKUP_PATH="$CONTAINER_BACKUP_FILE" \
   -i backup_database.sql
 

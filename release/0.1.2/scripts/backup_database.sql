@@ -23,7 +23,14 @@
 -- (see docs/development/Bugs/Bug 5 — Hardcoded Setvar Override.md in the
 -- Air-Gapped-System-Platform repo).
 
+-- No COMPRESSION -- this deployment runs SQL Server Express
+-- (docker-compose.yml's own MSSQL_PID: Express), which does not support
+-- backup compression at all: "BACKUP DATABASE WITH COMPRESSION is not
+-- supported on Express Edition." Confirmed live, 2026-08-25 (Pass 4,
+-- controlled-failure qualification) -- WITH COMPRESSION made this exact
+-- BACKUP DATABASE statement fail outright, every time, on this app's own
+-- real edition choice.
 BACKUP DATABASE [$(DB_NAME)]
 TO DISK = N'$(BACKUP_PATH)'
-WITH FORMAT, INIT, NAME = N'$(DB_NAME)-Full', SKIP, NOREWIND, NOUNLOAD, COMPRESSION, STATS = 10;
+WITH FORMAT, INIT, NAME = N'$(DB_NAME)-Full', SKIP, NOREWIND, NOUNLOAD, STATS = 10;
 GO

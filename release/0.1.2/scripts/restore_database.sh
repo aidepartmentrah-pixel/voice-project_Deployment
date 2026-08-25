@@ -55,8 +55,10 @@ MSYS_NO_PATHCONV=1 "${COMPOSE[@]}" cp "$HOST_BACKUP_PATH" "sqlserver:${CONTAINER
 # MSYS_NO_PATHCONV=1 is a no-op on real Linux — only matters if this is ever
 # run from Windows Git Bash, where MSYS otherwise mangles the --workdir
 # argument into a Windows-style path and the exec fails outright.
+# -b: same reasoning as backup_database.sh's own sqlcmd call -- without it,
+# a real RESTORE DATABASE failure would still report exit 0.
 MSYS_NO_PATHCONV=1 "${COMPOSE[@]}" exec -T --workdir /opt/dbpkg/scripts sqlserver /opt/mssql-tools18/bin/sqlcmd \
-  -S localhost -U sa -P "$DB_SA_PASSWORD" -C \
+  -S localhost -U sa -P "$DB_SA_PASSWORD" -C -b \
   -v DB_NAME="$DB_NAME" -v BACKUP_PATH="$CONTAINER_BACKUP_PATH" \
   -i restore_database.sql
 

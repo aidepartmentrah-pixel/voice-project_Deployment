@@ -33,7 +33,7 @@ echo "==> Checking database validation..."
 # run from Windows Git Bash, where MSYS otherwise mangles the --workdir
 # argument into a Windows-style path and the exec fails outright.
 if MSYS_NO_PATHCONV=1 "${COMPOSE[@]}" exec -T --workdir /opt/dbpkg/scripts sqlserver /opt/mssql-tools18/bin/sqlcmd \
-     -S localhost -d "${DB_NAME:-BloodBankDB}" -U sa -P "${DB_SA_PASSWORD:?DB_SA_PASSWORD not set}" -C \
+     -S localhost -d "${DB_NAME:-BloodBankDB}" -U sa -P "${DB_SA_PASSWORD:?DB_SA_PASSWORD not set}" -C -b \
      -v DB_NAME="${DB_NAME:-BloodBankDB}" -i verify_database.sql; then
   echo "==> Database checks OK."
 else
