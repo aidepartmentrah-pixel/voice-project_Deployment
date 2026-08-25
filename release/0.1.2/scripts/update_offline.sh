@@ -16,6 +16,7 @@
 set -euo pipefail
 
 RELEASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DEPLOY_DIR="${RAH_ACTIVE_DEPLOYMENT_PATH:-$RELEASE_DIR}"
 
 echo "==> voice-project (Blood Bank) offline update"
 echo
@@ -48,16 +49,34 @@ fi
 
 echo "==> Step 3/3: Restarting the stack with the new images..."
 cd "$RELEASE_DIR/compose"
+
+# Refresh database/scripts/nginx.conf from this (possibly newer) Release
+# into the deployment path -- see docker-compose.yml's own
+# DEPLOY_DATABASE_PATH comment for why these must be real, absolute,
+# deployment-path copies rather than Release-Storage-relative paths.
+# Certs are deliberately NOT touched here -- generated once at install,
+# preserved across updates.
+mkdir -p "$DEPLOY_DIR/database" "$DEPLOY_DIR/scripts" "$DEPLOY_DIR/compose/nginx/certs"
+cp -r "$RELEASE_DIR/database/." "$DEPLOY_DIR/database/"
+cp -r "$RELEASE_DIR/scripts/." "$DEPLOY_DIR/scripts/"
+cp "$RELEASE_DIR/compose/nginx/nginx.conf" "$DEPLOY_DIR/compose/nginx/nginx.conf"
+chmod -R o+rX "$DEPLOY_DIR/database" "$DEPLOY_DIR/scripts"
+export BACKUPS_HOST_PATH="$DEPLOY_DIR/backups"
+export DEPLOY_DATABASE_PATH="$DEPLOY_DIR/database"
+export DEPLOY_SCRIPTS_PATH="$DEPLOY_DIR/scripts"
+export DEPLOY_NGINX_CONF_PATH="$DEPLOY_DIR/compose/nginx/nginx.conf"
+export DEPLOY_NGINX_CERTS_PATH="$DEPLOY_DIR/compose/nginx/certs"
+
 # If the optional RAG chatbot was already enabled at this site (an "ollama"
 # container exists from a previous install/update), carry that forward
 # automatically -- a bare `docker compose up -d` without --profile would
 # otherwise leave ollama/rag-chatbot on their old images without updating
 # them, since profile-gated services aren't included by default.
-if docker compose ps -a --format '{{.Service}}' 2>/dev/null | grep -qx "ollama"; then
+if docker compose --env-file "$DEPLOY_DIR/compose/.env" ps -a --format '{{.Service}}' 2>/dev/null | grep -qx "ollama"; then
   echo "    (RAG chatbot profile was previously enabled at this site — updating it too.)"
-  docker compose --profile rag-chatbot up -d
+  docker compose --env-file "$DEPLOY_DIR/compose/.env" --profile rag-chatbot up -d
 else
-  docker compose up -d
+  docker compose --env-file "$DEPLOY_DIR/compose/.env" up -d
 fi
 
 echo "==> Waiting for containers to settle (20s)..."

@@ -7,8 +7,14 @@
 # `build:` — it's the dev/test variant), then exported via
 # scripts/export_images.sh.
 #
-# Image tag versions must match what was actually exported — override the
-# IMAGE_VERSION env var if a release other than 1.2.0 is being installed.
+# Image tags are hardcoded (not a ${IMAGE_VERSION:-...} variable) — the
+# Release Contract's RC-ART-006/RC-OFF-002 checks do literal string
+# matching against this file and can't resolve shell-style variable
+# expansion, so a variable here reads as "no matching offline archive"
+# even when one genuinely exists (same finding already documented against
+# STT-SCHEDULE's own compose file). A future version bump means editing
+# these tags directly, matching the Playbook's own "immutable, versioned
+# tags" rule anyway.
 #
 # `name:` pins an explicit Compose project name. Without this, Compose
 # derives the project name from the current directory's basename — and
@@ -31,14 +37,37 @@ services:
       MSSQL_PID: Express
     volumes:
       - sqlserver_data:/var/opt/mssql
-      - ../backups:/var/opt/mssql/backup
+      # BACKUPS_HOST_PATH defaults to ../backups (manual-run convenience,
+      # relative to this compose/ directory) but must be overridden to the
+      # real canonical deployment path's own backups/ directory whenever
+      # this compose file is invoked from Release Storage (which is
+      # immutable) rather than the live deployment -- every lifecycle
+      # script sets this explicitly when RAH_ACTIVE_DEPLOYMENT_PATH is set.
+      - ${BACKUPS_HOST_PATH:-../backups}:/var/opt/mssql/backup
       # Read-only access to the SQL Server Database Package so
       # verify_installation.sh/backup_database.sh/restore_database.sh can
       # exec sqlcmd against it directly — mirrors repo-root's database/ +
       # scripts/ sibling layout under /opt/dbpkg/ so verify_database.sql's
       # ":r ../database/..." includes resolve correctly.
-      - ../database:/opt/dbpkg/database:ro
-      - ../scripts:/opt/dbpkg/scripts:ro
+      #
+      # DEPLOY_DATABASE_PATH/DEPLOY_SCRIPTS_PATH default to the relative
+      # Release-Storage paths (manual-run convenience, same directory this
+      # compose file itself lives in) but must be overridden to real,
+      # absolute deployment-path copies whenever the RAH Offline
+      # Installation Platform invokes this compose file: Platform's own
+      # backend runs `docker compose` from inside its own container via
+      # the host's Docker socket, so a relative path here resolves against
+      # Platform's own container filesystem view of Release Storage
+      # (/data/releases/...) rather than the real host path the Docker
+      # daemon needs — silently bind-mounting an empty, Docker-auto-created
+      # directory instead of this Release's real content (confirmed live,
+      # 2026-08-25: both mounts came back empty under Platform, no error).
+      # install_offline.sh/update_offline.sh copy the real content into
+      # the deployment path specifically so these can be absolute,
+      # identity-mapped paths instead (matching how RAH_ACTIVE_DEPLOYMENT_PATH
+      # itself, under /opt/rah/apps, is identity-mapped and already works).
+      - ${DEPLOY_DATABASE_PATH:-../database}:/opt/dbpkg/database:ro
+      - ${DEPLOY_SCRIPTS_PATH:-../scripts}:/opt/dbpkg/scripts:ro
     ports:
       - "${DB_PORT:-1433}:1433"
     healthcheck:
@@ -50,7 +79,7 @@ services:
     restart: unless-stopped
 
   db-init:
-    image: voice-project-db-init:${IMAGE_VERSION:-1.2.0}
+    image: voice-project-db-init:1.2.0
     environment:
       DB_SERVER: sqlserver
       DB_PORT: 1433
@@ -64,7 +93,7 @@ services:
     restart: "no"
 
   whisper:
-    image: voice-project-whisper:${IMAGE_VERSION:-1.2.0}
+    image: voice-project-whisper:1.2.0
     environment:
       # WHISPER_MODEL_PATH takes priority in whisper_service.py, and the
       # model is now baked into the image at build time (no more
@@ -79,7 +108,7 @@ services:
     restart: unless-stopped
 
   backend:
-    image: voice-project-backend:${IMAGE_VERSION:-1.2.0}
+    image: voice-project-backend:1.2.0
     environment:
       DB_SERVER: sqlserver
       DB_PORT: 1433
@@ -123,7 +152,7 @@ services:
   # chatbot" and "Prerequisites" sections before enabling this at a
   # hospital site.
   ollama:
-    image: voice-project-ollama:${IMAGE_VERSION:-1.2.0}
+    image: voice-project-ollama:1.2.0
     environment:
       OLLAMA_HOST: 0.0.0.0:11434
     healthcheck:
@@ -136,7 +165,7 @@ services:
     restart: unless-stopped
 
   rag-chatbot:
-    image: voice-project-rag-chatbot:${IMAGE_VERSION:-1.2.0}
+    image: voice-project-rag-chatbot:1.2.0
     environment:
       OLLAMA_HOST: http://ollama:11434
       NODE_API_URL: http://backend:3000
@@ -154,11 +183,22 @@ services:
   nginx:
     image: nginx:1.27-alpine
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/certs:/etc/nginx/certs:ro
+      # Same real, live-confirmed reason as DEPLOY_DATABASE_PATH/
+      # DEPLOY_SCRIPTS_PATH above — a relative path here resolved to an
+      # unreachable Release-Storage path from the host daemon's own
+      # perspective, and (unlike a directory-to-directory mount) this one
+      # failed loudly: Docker auto-created a directory at that wrong path,
+      # which then couldn't be bind-mounted onto nginx.conf's own file
+      # destination ("not a directory... mount a directory onto a file").
+      - ${DEPLOY_NGINX_CONF_PATH:-./nginx/nginx.conf}:/etc/nginx/nginx.conf:ro
+      - ${DEPLOY_NGINX_CERTS_PATH:-./nginx/certs}:/etc/nginx/certs:ro
     ports:
-      - "80:80"
-      - "443:443"
+      # Operator-configurable, not hardcoded -- a shared offline host running
+      # more than one RAH Lab project can't have every one of them claim the
+      # OS-default 80/443 (confirmed colliding live, 2026-08-25, with an
+      # unrelated project's own port 80 on the same host).
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
     depends_on:
       backend:
         condition: service_healthy

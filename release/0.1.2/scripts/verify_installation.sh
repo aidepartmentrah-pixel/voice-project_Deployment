@@ -3,14 +3,21 @@
 set -euo pipefail
 
 RELEASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DEPLOY_DIR="${RAH_ACTIVE_DEPLOYMENT_PATH:-$RELEASE_DIR}"
 cd "$RELEASE_DIR/compose"
 
-if [ -f .env ]; then
-  set -a; source .env; set +a
+if [ -f "$DEPLOY_DIR/compose/.env" ]; then
+  set -a; source "$DEPLOY_DIR/compose/.env"; set +a
 fi
+COMPOSE=(docker compose --env-file "$DEPLOY_DIR/compose/.env")
+export BACKUPS_HOST_PATH="$DEPLOY_DIR/backups"
+export DEPLOY_DATABASE_PATH="$DEPLOY_DIR/database"
+export DEPLOY_SCRIPTS_PATH="$DEPLOY_DIR/scripts"
+export DEPLOY_NGINX_CONF_PATH="$DEPLOY_DIR/compose/nginx/nginx.conf"
+export DEPLOY_NGINX_CERTS_PATH="$DEPLOY_DIR/compose/nginx/certs"
 
 echo "==> Container status:"
-docker compose ps
+"${COMPOSE[@]}" ps
 echo
 
 FAIL=0
@@ -25,7 +32,7 @@ echo "==> Checking database validation..."
 # MSYS_NO_PATHCONV=1 is a no-op on real Linux — only matters if this is ever
 # run from Windows Git Bash, where MSYS otherwise mangles the --workdir
 # argument into a Windows-style path and the exec fails outright.
-if MSYS_NO_PATHCONV=1 docker compose exec -T --workdir /opt/dbpkg/scripts sqlserver /opt/mssql-tools18/bin/sqlcmd \
+if MSYS_NO_PATHCONV=1 "${COMPOSE[@]}" exec -T --workdir /opt/dbpkg/scripts sqlserver /opt/mssql-tools18/bin/sqlcmd \
      -S localhost -d "${DB_NAME:-BloodBankDB}" -U sa -P "${DB_SA_PASSWORD:?DB_SA_PASSWORD not set}" -C \
      -v DB_NAME="${DB_NAME:-BloodBankDB}" -i verify_database.sql; then
   echo "==> Database checks OK."
@@ -47,7 +54,7 @@ echo "==> Checking backend health..."
 # healthy, since "localhost" means something different to the caller in
 # that case. docker compose exec reaches the target container directly
 # via the Docker socket regardless of the caller's own network namespace.
-if docker compose exec -T backend node -e "require('http').get('http://localhost:3000/mode-check', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"; then
+if "${COMPOSE[@]}" exec -T backend node -e "require('http').get('http://localhost:3000/mode-check', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"; then
   echo "==> Backend is reachable and healthy."
 else
   echo "==> BACKEND HEALTH CHECK FAILED." >&2
@@ -63,15 +70,15 @@ echo "==> Checking optional RAG chatbot (Ollama) status..."
 # unauthenticated status-code probe can't cleanly distinguish "not enabled"
 # from "enabled but broken" -- Docker's own healthcheck status (defined on
 # the ollama service in docker-compose.yml) is a more reliable signal.
-if docker compose ps --status running --format '{{.Service}}' 2>/dev/null | grep -qx "ollama"; then
-  OLLAMA_HEALTH="$(docker compose ps --format '{{.Service}} {{.Health}}' 2>/dev/null | awk '$1=="ollama"{print $2}')"
+if "${COMPOSE[@]}" ps --status running --format '{{.Service}}' 2>/dev/null | grep -qx "ollama"; then
+  OLLAMA_HEALTH="$("${COMPOSE[@]}" ps --format '{{.Service}} {{.Health}}' 2>/dev/null | awk '$1=="ollama"{print $2}')"
   if [ "$OLLAMA_HEALTH" = "healthy" ]; then
     echo "==> Ollama is running and healthy."
   else
     echo "==> OLLAMA CHECK FAILED (container running but health status: ${OLLAMA_HEALTH:-unknown})." >&2
     FAIL=1
   fi
-  if docker compose ps --status running --format '{{.Service}}' 2>/dev/null | grep -qx "rag-chatbot"; then
+  if "${COMPOSE[@]}" ps --status running --format '{{.Service}}' 2>/dev/null | grep -qx "rag-chatbot"; then
     echo "==> rag-chatbot container is running."
   else
     echo "==> RAG CHATBOT CHECK FAILED (ollama is up but rag-chatbot is not)." >&2

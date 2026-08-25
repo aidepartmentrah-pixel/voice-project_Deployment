@@ -15,8 +15,15 @@
 set -euo pipefail
 
 RELEASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DEPLOY_DIR="${RAH_ACTIVE_DEPLOYMENT_PATH:-$RELEASE_DIR}"
 cd "$RELEASE_DIR/compose"
-[ -f .env ] && { set -a; source .env; set +a; }
+[ -f "$DEPLOY_DIR/compose/.env" ] && { set -a; source "$DEPLOY_DIR/compose/.env"; set +a; }
+COMPOSE=(docker compose --env-file "$DEPLOY_DIR/compose/.env")
+export BACKUPS_HOST_PATH="$DEPLOY_DIR/backups"
+export DEPLOY_DATABASE_PATH="$DEPLOY_DIR/database"
+export DEPLOY_SCRIPTS_PATH="$DEPLOY_DIR/scripts"
+export DEPLOY_NGINX_CONF_PATH="$DEPLOY_DIR/compose/nginx/nginx.conf"
+export DEPLOY_NGINX_CERTS_PATH="$DEPLOY_DIR/compose/nginx/certs"
 
 : "${DB_NAME:?DB_NAME is required (set in compose/.env)}"
 : "${DB_SA_PASSWORD:?DB_SA_PASSWORD is required (set in compose/.env)}"
@@ -30,7 +37,7 @@ cd "$RELEASE_DIR/compose"
 # this directory needs the identical fix, done from inside the container,
 # never by chowning the host path directly (its real resolved location
 # isn't guaranteed stable across compose revisions).
-MSYS_NO_PATHCONV=1 docker compose exec -T -u root sqlserver chown -R 10001:0 /var/opt/mssql/backup
+MSYS_NO_PATHCONV=1 "${COMPOSE[@]}" exec -T -u root sqlserver chown -R 10001:0 /var/opt/mssql/backup
 
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 CONTAINER_BACKUP_FILE="/var/opt/mssql/backup/${DB_NAME}_${TIMESTAMP}.bak"
@@ -38,14 +45,14 @@ CONTAINER_BACKUP_FILE="/var/opt/mssql/backup/${DB_NAME}_${TIMESTAMP}.bak"
 # MSYS_NO_PATHCONV=1 is a no-op on real Linux — only matters if this is ever
 # run from Windows Git Bash, where MSYS otherwise mangles the --workdir
 # argument into a Windows-style path and the exec fails outright.
-MSYS_NO_PATHCONV=1 docker compose exec -T --workdir /opt/dbpkg/scripts sqlserver /opt/mssql-tools18/bin/sqlcmd \
+MSYS_NO_PATHCONV=1 "${COMPOSE[@]}" exec -T --workdir /opt/dbpkg/scripts sqlserver /opt/mssql-tools18/bin/sqlcmd \
   -S localhost -U sa -P "$DB_SA_PASSWORD" -C \
   -v DB_NAME="$DB_NAME" -v BACKUP_PATH="$CONTAINER_BACKUP_FILE" \
   -i backup_database.sql
 
 if [ -n "${RAH_BACKUP_OUTPUT_PATH:-}" ]; then
   mkdir -p "$(dirname "$RAH_BACKUP_OUTPUT_PATH")"
-  MSYS_NO_PATHCONV=1 docker compose cp "sqlserver:${CONTAINER_BACKUP_FILE}" "$RAH_BACKUP_OUTPUT_PATH"
+  MSYS_NO_PATHCONV=1 "${COMPOSE[@]}" cp "sqlserver:${CONTAINER_BACKUP_FILE}" "$RAH_BACKUP_OUTPUT_PATH"
   echo "==> Backup written to ${RAH_BACKUP_OUTPUT_PATH} (Platform-requested path)"
 else
   echo "==> Backup written inside container at ${CONTAINER_BACKUP_FILE}"

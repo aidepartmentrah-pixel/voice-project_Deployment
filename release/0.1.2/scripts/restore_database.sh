@@ -22,8 +22,15 @@ else
 fi
 
 RELEASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DEPLOY_DIR="${RAH_ACTIVE_DEPLOYMENT_PATH:-$RELEASE_DIR}"
 cd "$RELEASE_DIR/compose"
-[ -f .env ] && { set -a; source .env; set +a; }
+[ -f "$DEPLOY_DIR/compose/.env" ] && { set -a; source "$DEPLOY_DIR/compose/.env"; set +a; }
+COMPOSE=(docker compose --env-file "$DEPLOY_DIR/compose/.env")
+export BACKUPS_HOST_PATH="$DEPLOY_DIR/backups"
+export DEPLOY_DATABASE_PATH="$DEPLOY_DIR/database"
+export DEPLOY_SCRIPTS_PATH="$DEPLOY_DIR/scripts"
+export DEPLOY_NGINX_CONF_PATH="$DEPLOY_DIR/compose/nginx/nginx.conf"
+export DEPLOY_NGINX_CERTS_PATH="$DEPLOY_DIR/compose/nginx/certs"
 
 : "${DB_NAME:?DB_NAME is required (set in compose/.env)}"
 : "${DB_SA_PASSWORD:?DB_SA_PASSWORD is required (set in compose/.env)}"
@@ -37,22 +44,22 @@ BACKUP_FILENAME="$(basename "$HOST_BACKUP_PATH")"
 CONTAINER_BACKUP_PATH="/var/opt/mssql/backup/${BACKUP_FILENAME}"
 
 echo "==> This will REPLACE the current ${DB_NAME} database. Stopping backend first..."
-docker compose stop backend
+"${COMPOSE[@]}" stop backend
 
 # Copy the artifact into the container explicitly rather than assuming it's
 # already visible via the ./backups/ bind mount — true for a manual run
 # using that directory, not guaranteed for a Platform-supplied path outside
 # this deployment.
-MSYS_NO_PATHCONV=1 docker compose cp "$HOST_BACKUP_PATH" "sqlserver:${CONTAINER_BACKUP_PATH}"
+MSYS_NO_PATHCONV=1 "${COMPOSE[@]}" cp "$HOST_BACKUP_PATH" "sqlserver:${CONTAINER_BACKUP_PATH}"
 
 # MSYS_NO_PATHCONV=1 is a no-op on real Linux — only matters if this is ever
 # run from Windows Git Bash, where MSYS otherwise mangles the --workdir
 # argument into a Windows-style path and the exec fails outright.
-MSYS_NO_PATHCONV=1 docker compose exec -T --workdir /opt/dbpkg/scripts sqlserver /opt/mssql-tools18/bin/sqlcmd \
+MSYS_NO_PATHCONV=1 "${COMPOSE[@]}" exec -T --workdir /opt/dbpkg/scripts sqlserver /opt/mssql-tools18/bin/sqlcmd \
   -S localhost -U sa -P "$DB_SA_PASSWORD" -C \
   -v DB_NAME="$DB_NAME" -v BACKUP_PATH="$CONTAINER_BACKUP_PATH" \
   -i restore_database.sql
 
 echo "==> Restore complete. Restarting backend..."
-docker compose start backend
+"${COMPOSE[@]}" start backend
 echo "==> Done. Run scripts/verify_installation.sh to confirm."
