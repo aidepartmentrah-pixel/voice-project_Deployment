@@ -17,6 +17,15 @@ node-backend/config/
 node-backend/edelphyn-test-db/
 python-service/venv/
 python-service/__pycache__/
+# rag-chatbot build-time cruft -- not excluded from .dockerignore before
+# this (it has no rag-chatbot/* rules at all), so a locally-run
+# refresh_data.py could otherwise bake a stale local chroma_db/data_snapshot
+# into the rag-chatbot image, and venv/__pycache__ would bloat every build's
+# context unnecessarily.
+rag-chatbot/venv/
+rag-chatbot/__pycache__/
+rag-chatbot/chroma_db/
+rag-chatbot/data_snapshot/
 docs/
 release/
 *.md

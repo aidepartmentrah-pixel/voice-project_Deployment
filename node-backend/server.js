@@ -67,6 +67,14 @@ if (!JWT_SECRET) {
   process.exit(1);
 }
 const WHISPER_SERVICE_URL = process.env.WHISPER_SERVICE_URL || "http://whisper:5001/transcribe";
+// rag-chatbot is an optional Docker Compose service (see docker-compose.yml's
+// "rag-chatbot" profile) — the default here falls back to 127.0.0.1 for the
+// case where rag-chatbot/app.py is instead run natively on the host per its
+// own SETUP.md (its documented primary workflow), rather than as a
+// container; when running as a container, docker-compose.yml always sets
+// this explicitly to the internal service name.
+const RAG_CHATBOT_URL = process.env.RAG_CHATBOT_URL || "http://127.0.0.1:5000/api/chat";
+const OLLAMA_URL = process.env.OLLAMA_URL || "http://ollama:11434";
 
 const app    = express();
 const server = http.createServer(app);
@@ -1268,7 +1276,7 @@ app.post('/api/rag-chat', requireAuth, async (req, res) => {
   if (!question || !question.trim()) return res.status(400).json({ error: 'question is required' });
   try {
     const ragRes = await axios.post(
-      'http://127.0.0.1:5000/api/chat',
+      RAG_CHATBOT_URL,
       { question, history: Array.isArray(history) ? history.slice(-6) : [] },
       { timeout: 180000 }
     );
@@ -1916,8 +1924,36 @@ app.get('/response-times', requireAuth, async (req, res) => {
 // ════════════════════════════════════════════════════════════════
 // GET /mode-check
 // ════════════════════════════════════════════════════════════════
-app.get("/mode-check", (req, res) => {
-  res.json({ mode: "rules", ollamaRunning: false, hasModel: false, dbReady });
+// ollamaRunning is a real, short-timeout, cached liveness check against the
+// (optional, profile-gated) ollama service — /mode-check is unauthenticated
+// and polled frequently by the frontend, so this must never add noticeable
+// latency, especially in the common case where the rag-chatbot profile
+// isn't enabled at all and ollama simply isn't running.
+let ollamaStatusCache = { checkedAt: 0, running: false };
+const OLLAMA_STATUS_TTL_MS = 15000;
+
+async function checkOllamaRunning() {
+  const now = Date.now();
+  if (now - ollamaStatusCache.checkedAt < OLLAMA_STATUS_TTL_MS) {
+    return ollamaStatusCache.running;
+  }
+  let running = false;
+  try {
+    // Ollama's root endpoint returns a plain 200 with no auth needed — the
+    // lightest possible liveness probe. Short timeout so a down/absent
+    // service never makes /mode-check itself feel slow.
+    await axios.get(OLLAMA_URL, { timeout: 1500 });
+    running = true;
+  } catch {
+    running = false; // covers connection-refused (profile not running), timeout, DNS failure, etc.
+  }
+  ollamaStatusCache = { checkedAt: now, running };
+  return running;
+}
+
+app.get("/mode-check", async (req, res) => {
+  const ollamaRunning = await checkOllamaRunning();
+  res.json({ mode: "rules", ollamaRunning, hasModel: false, dbReady });
 });
 // ════════════════════════════════════════════════════════════════
 // POST /export/pdf   — generate and download PDF

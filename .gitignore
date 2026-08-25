@@ -38,6 +38,13 @@ assets/whisper-model-medium/*.bin
 release/*/assets/*.zip
 release/*/assets/whisper-model-medium/*.bin
 
+# Ollama models — multi-GB content-addressable blob store, exported via
+# scripts/export_ollama_models.sh, never commit. Unlike Whisper's export
+# (which has a small-metadata/large-binary split worth partially tracking),
+# every file under Ollama's model store is itself a large binary blob, so
+# the whole directory is excluded rather than just the *.bin files.
+assets/ollama-models/
+
 
 # Packager output — fully generated, never hand-authored
 /release_packager/

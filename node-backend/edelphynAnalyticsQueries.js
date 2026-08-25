@@ -237,9 +237,11 @@ async function donorRecall(pool, inactiveDays) {
         P.NUM_FREQUENCY AS DonationFrequencyDays,
         P.DES_MOBILEPHONE,
         P.DES_EMAIL,
-        CASE WHEN P.DES_MOBILEPHONE IS NOT NULL AND LTRIM(RTRIM(P.DES_MOBILEPHONE)) <> '' AND P.LOG_WRONGMOBILE = 0
+        CASE WHEN P.DES_MOBILEPHONE IS NOT NULL AND LTRIM(RTRIM(P.DES_MOBILEPHONE)) <> ''
+                  AND ISNULL(CAST(P.LOG_WRONGMOBILE AS varchar(10)), '0') NOT IN ('1', 'Y', 'true', 'TRUE')
              THEN 1 ELSE 0 END AS PhoneAvailable,
-        CASE WHEN P.DES_EMAIL IS NOT NULL AND LTRIM(RTRIM(P.DES_EMAIL)) <> '' AND P.LOG_WRONGEMAIL = 0
+        CASE WHEN P.DES_EMAIL IS NOT NULL AND LTRIM(RTRIM(P.DES_EMAIL)) <> ''
+                  AND ISNULL(CAST(P.LOG_WRONGEMAIL AS varchar(10)), '0') NOT IN ('1', 'Y', 'true', 'TRUE')
              THEN 1 ELSE 0 END AS EmailAvailable,
         P.LOG_BYSMS AS SmsConsent,
         P.LOG_BYEMAIL AS EmailConsent,
@@ -337,8 +339,8 @@ async function returnRate(pool, dateFrom, dateTo) {
     SELECT
         CT.DES_COMPONENTTYPE AS ComponentType,
         COUNT(*) AS UnitsIssued,
-        SUM(CASE WHEN T.DAT_RETURN IS NOT NULL OR T.COD_RETURN NOT IN ('', '0') THEN 1 ELSE 0 END) AS UnitsReturned,
-        CAST(100.0 * SUM(CASE WHEN T.DAT_RETURN IS NOT NULL OR T.COD_RETURN NOT IN ('', '0') THEN 1 ELSE 0 END)
+        SUM(CASE WHEN T.DAT_RETURN IS NOT NULL OR CAST(T.COD_RETURN AS varchar(10)) NOT IN ('', '0') THEN 1 ELSE 0 END) AS UnitsReturned,
+        CAST(100.0 * SUM(CASE WHEN T.DAT_RETURN IS NOT NULL OR CAST(T.COD_RETURN AS varchar(10)) NOT IN ('', '0') THEN 1 ELSE 0 END)
              / NULLIF(COUNT(*), 0) AS decimal(10,2)) AS ReturnRate
     FROM dbo.TRANSFUSION T
     INNER JOIN dbo.UNIT U ON U.ID_UNIT = T.ID_UNIT

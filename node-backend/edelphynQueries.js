@@ -19,7 +19,7 @@ const QUERIES = {
     LEFT JOIN dbo.BAGTYPE      AS bt ON bt.ID_BAGTYPE = d.ID_BAGTYPE
     WHERE COALESCE(d.DAT_EXTERNALENTRY, d.DAT_DONATION) >= @DateFrom
       AND COALESCE(d.DAT_EXTERNALENTRY, d.DAT_DONATION) <  @DateTo
-      AND (d.LOG_ENTRY = 1 OR d.DAT_EXTERNALENTRY IS NOT NULL OR d.ID_BAGORIGIN IS NOT NULL)
+      AND (CAST(d.LOG_ENTRY AS varchar(10)) IN ('1', 'Y', 'true', 'TRUE') OR d.DAT_EXTERNALENTRY IS NOT NULL OR d.ID_BAGORIGIN IS NOT NULL)
     ORDER BY [Date], [Time], d.COD_DONATION;
   `,
 
@@ -70,7 +70,7 @@ const QUERIES = {
         COALESCE(dst.DES_DESTINATION, tr.DES_WARD, w.DES_WARD)      AS [Destination],
         u.COD_CMV                                                  AS [C.M.],
         CASE WHEN tr.DAT_TRANSFUSION IS NOT NULL THEN 1 ELSE 0 END AS [Issued],
-        CASE WHEN tr.DAT_RETURN IS NOT NULL OR tr.COD_RETURN NOT IN ('', '0') THEN 1 ELSE 0 END AS [Returned],
+        CASE WHEN tr.DAT_RETURN IS NOT NULL OR CAST(tr.COD_RETURN AS varchar(10)) NOT IN ('', '0') THEN 1 ELSE 0 END AS [Returned],
         cust.DES_CUSTOMER                                          AS [Customer],
         pr.DES_PRIORITY                                            AS [Priority]
     FROM dbo.TRANSFUSION AS tr
@@ -113,7 +113,7 @@ const QUERIES = {
         CONCAT(u.COD_UNIT, CASE WHEN NULLIF(u.COD_DIVISION, '') IS NULL THEN '' ELSE CONCAT('-', u.COD_DIVISION) END) AS [Unit],
         NULLIF(CONCAT(NULLIF(u.COD_GROUP, ''), NULLIF(u.COD_RH, '')), '') AS [Group],
         COALESCE(dd.DAT_EXPIRY, u.DAT_EXPIRY)                       AS [Expiry],
-        CASE WHEN dd.DAT_RETURN IS NOT NULL OR dd.COD_RETURN NOT IN ('', '0') THEN 1 ELSE 0 END AS [Returned]
+        CASE WHEN dd.DAT_RETURN IS NOT NULL OR CAST(dd.COD_RETURN AS varchar(10)) NOT IN ('', '0') THEN 1 ELSE 0 END AS [Returned]
     FROM dbo.DELIVERYDETAIL AS dd
     INNER JOIN dbo.REQUEST AS r ON r.ID_REQUEST = dd.ID_REQUEST
     LEFT JOIN dbo.DELIVERYNOTE AS dn ON dn.ID_DELIVERYNOTE = dd.ID_DELIVERYNOTE
@@ -170,7 +170,7 @@ const REQUESTS_ORDERFORM = `
   LEFT JOIN dbo.ORIGIN        AS o   ON o.ID_ORIGIN = ofm.ID_ORIGIN
   WHERE ofm.DAT_ORDERFORM >= @DateFrom
     AND ofm.DAT_ORDERFORM <  @DateTo
-    AND ISNULL(ofm.LOG_CANCELLED, 0) = 0
+    AND ISNULL(CAST(ofm.LOG_CANCELLED AS varchar(10)), '0') NOT IN ('1', 'Y', 'true', 'TRUE')
   ORDER BY ofm.DAT_ORDERFORM, ofm.TIM_ORDERFORM, ofm.COD_ORDERFORM;
 `;
 

@@ -4,9 +4,15 @@ Fetches live e-Delphyn data from the Node backend's authenticated
 each category to data_snapshot/{category}.json.
 
 Auth: mints its own short-lived JWT using the same JWT_SECRET the Node
-backend already signs/verifies tokens with (node-backend/.env) -- no bot
-user account needed, requireAuth() in server.js accepts it exactly like a
-normal login token.
+backend already signs/verifies tokens with -- no bot user account needed,
+requireAuth() in server.js accepts it exactly like a normal login token.
+
+JWT_SECRET is supplied directly as a process environment variable (see
+docker-compose.yml's rag-chatbot service / compose/.env.offline.template in
+the release package) -- when this runs inside the rag-chatbot container,
+there is no node-backend/.env file on disk to read (only rag-chatbot's own
+source is copied into that image), so it must come from the environment
+rather than a sibling dotenv file.
 
 Run standalone, or via refresh_data.py to also rebuild the vector index.
 """
@@ -17,17 +23,16 @@ import time
 
 import jwt
 import requests
-from dotenv import load_dotenv
 
 from categories import CATEGORIES, SNAPSHOT_DIR
 
-HERE = os.path.dirname(__file__)
-NODE_ENV_PATH = os.path.join(HERE, "..", "node-backend", ".env")
-load_dotenv(NODE_ENV_PATH)
-
 JWT_SECRET = os.environ.get("JWT_SECRET")
 if not JWT_SECRET:
-    raise RuntimeError(f"JWT_SECRET not found -- expected it in {NODE_ENV_PATH}")
+    raise RuntimeError(
+        "JWT_SECRET is not set. It must be passed as a process environment "
+        "variable (the same value node-backend uses to sign tokens) -- see "
+        "docker-compose.yml / compose/.env.offline.template."
+    )
 
 NODE_API_URL = os.environ.get("NODE_API_URL", "http://localhost:3000")
 PAGE_SIZE = 500  # server.js caps category-query at 500 rows/page

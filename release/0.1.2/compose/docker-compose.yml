@@ -1,8 +1,26 @@
-# `name:` pins an explicit Compose project name so this never collides with
-# another project on a shared Docker host that happens to use the same
-# directory name for its own compose file (confirmed happening with
-# release/compose/ during testing — see that file's comment for detail).
-name: voice-project-dev
+# release/0.1.2/compose/docker-compose.yml (installed image version: 1.2.0)
+# OFFLINE variant — references pre-built, pre-loaded image tags instead of
+# `build:` directives. The offline server has no source code and no
+# internet access, so images must come from `scripts/load_images.sh`
+# (docker load) rather than being built here. This is built on the Online
+# Build Workstation from the repo-root docker-compose.yml (that one DOES use
+# `build:` — it's the dev/test variant), then exported via
+# scripts/export_images.sh.
+#
+# Image tag versions must match what was actually exported — override the
+# IMAGE_VERSION env var if a release other than 1.2.0 is being installed.
+#
+# `name:` pins an explicit Compose project name. Without this, Compose
+# derives the project name from the current directory's basename — and
+# since this file lives in a directory literally called "compose" (a common
+# convention across RAH Lab release packages), two unrelated projects
+# deployed on the same Docker host can collide under the same default
+# project name, causing container/volume/network name clashes and orphaned
+# containers from one project showing up in `docker compose ps` for the
+# other. Confirmed this actually happening on this shared host during
+# testing (an unrelated project's leftover container appeared as an
+# "orphan" of this project). Every RAH Lab release should set this.
+name: voice-project
 
 services:
   sqlserver:
@@ -13,20 +31,15 @@ services:
       MSSQL_PID: Express
     volumes:
       - sqlserver_data:/var/opt/mssql
-      - ./backups:/var/opt/mssql/backup
+      - ../backups:/var/opt/mssql/backup
       # Read-only access to the SQL Server Database Package so
       # verify_installation.sh/backup_database.sh/restore_database.sh can
-      # exec sqlcmd against it directly. database/ and scripts/ are mounted
-      # as siblings under /opt/dbpkg/ to preserve the same relative-path
-      # relationship verify_database.sql's ":r ../database/..." includes
-      # already assume (this container has none of our files otherwise —
-      # it's the untouched official Microsoft image).
-      - ./database:/opt/dbpkg/database:ro
-      - ./scripts:/opt/dbpkg/scripts:ro
+      # exec sqlcmd against it directly — mirrors repo-root's database/ +
+      # scripts/ sibling layout under /opt/dbpkg/ so verify_database.sql's
+      # ":r ../database/..." includes resolve correctly.
+      - ../database:/opt/dbpkg/database:ro
+      - ../scripts:/opt/dbpkg/scripts:ro
     ports:
-      # Exposed for optional GUI access (DBeaver/SSMS/Azure Data Studio) —
-      # not required for the app itself, which reaches sqlserver over the
-      # internal Compose network.
       - "${DB_PORT:-1433}:1433"
     healthcheck:
       test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$DB_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
@@ -37,9 +50,7 @@ services:
     restart: unless-stopped
 
   db-init:
-    build:
-      context: .
-      dockerfile: db-init/Dockerfile
+    image: voice-project-db-init:${IMAGE_VERSION:-1.2.0}
     environment:
       DB_SERVER: sqlserver
       DB_PORT: 1433
@@ -53,25 +64,22 @@ services:
     restart: "no"
 
   whisper:
-    build:
-      context: .
-      dockerfile: python-service/Dockerfile
+    image: voice-project-whisper:${IMAGE_VERSION:-1.2.0}
     environment:
       # WHISPER_MODEL_PATH takes priority in whisper_service.py, and the
-      # model is now baked into the image at this exact path at build time
-      # (see python-service/Dockerfile) — no runtime mount needed. HF_HUB_OFFLINE
-      # is a defense-in-depth safety net: even if WHISPER_MODEL_PATH were
-      # unset, this makes huggingface_hub fail fast with a clear local error
-      # instead of hanging on a DNS lookup.
+      # model is now baked into the image at build time (no more
+      # assets/whisper-model-medium.zip / runtime bind-mount — see
+      # RELEASE_NOTES.md's 1.2.0 section for why this changed). HF_HUB_OFFLINE
+      # is a defense-in-depth safety net so any accidental fallback to
+      # name-based lookup fails fast with a clear local error instead of
+      # hanging on a DNS lookup that can never succeed on this host.
       WHISPER_MODEL: ${WHISPER_MODEL:-medium}
       WHISPER_MODEL_PATH: /models/whisper-medium
       HF_HUB_OFFLINE: "1"
     restart: unless-stopped
 
   backend:
-    build:
-      context: .
-      dockerfile: node-backend/Dockerfile
+    image: voice-project-backend:${IMAGE_VERSION:-1.2.0}
     environment:
       DB_SERVER: sqlserver
       DB_PORT: 1433
@@ -80,19 +88,18 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       WHISPER_SERVICE_URL: http://whisper:5001/transcribe
-      # rag-chatbot is now a real, optional Compose service (see below,
-      # gated behind the "rag-chatbot" profile) — reached by its stable
-      # internal service name like every other internal dependency here.
       RAG_CHATBOT_URL: http://rag-chatbot:5000/api/chat
       OLLAMA_URL: http://ollama:11434
       # Optional — eDelphyn (hospital LIS). Left blank/unset by default; the
       # app degrades gracefully when unset (see settingsStore.js). See
-      # .env.example for details.
+      # .env.offline.template for details, including the SQL-login-vs-
+      # Windows-Auth prerequisite.
       EDELPHYN_DB_SERVER: ${EDELPHYN_DB_SERVER:-}
       EDELPHYN_DB_PORT: ${EDELPHYN_DB_PORT:-1433}
       EDELPHYN_DB_NAME: ${EDELPHYN_DB_NAME:-eDelphyn}
       EDELPHYN_DB_USER: ${EDELPHYN_DB_USER:-}
       EDELPHYN_DB_PASSWORD: ${EDELPHYN_DB_PASSWORD:-}
+      ALLOW_RUNTIME_DB_SETTINGS: ${ALLOW_RUNTIME_DB_SETTINGS:-false}
     volumes:
       - uploads_data:/app/node-backend/uploads
     depends_on:
@@ -110,15 +117,13 @@ services:
 
   # ── Optional: offline RAG chatbot (Ollama) ────────────────────────
   # Both services below are gated behind the "rag-chatbot" Compose profile
-  # and do NOT start with a bare `docker compose up`. Enable explicitly:
-  #   docker compose --profile rag-chatbot up -d
-  # Requires EDELPHYN_DB_* (above) to be filled in and reachable — the
-  # chatbot has no data to index without it. See rag-chatbot/SETUP.md and
-  # documentation/INSTALL_OFFLINE.md's "Enabling the optional RAG chatbot".
+  # and do NOT start with a bare `docker compose up` / install_offline.sh.
+  # Enable explicitly:  docker compose --profile rag-chatbot up -d
+  # See documentation/INSTALL_OFFLINE.md's "Enabling the optional RAG
+  # chatbot" and "Prerequisites" sections before enabling this at a
+  # hospital site.
   ollama:
-    build:
-      context: .
-      dockerfile: ollama/Dockerfile
+    image: voice-project-ollama:${IMAGE_VERSION:-1.2.0}
     environment:
       OLLAMA_HOST: 0.0.0.0:11434
     healthcheck:
@@ -131,9 +136,7 @@ services:
     restart: unless-stopped
 
   rag-chatbot:
-    build:
-      context: .
-      dockerfile: rag-chatbot/Dockerfile
+    image: voice-project-rag-chatbot:${IMAGE_VERSION:-1.2.0}
     environment:
       OLLAMA_HOST: http://ollama:11434
       NODE_API_URL: http://backend:3000

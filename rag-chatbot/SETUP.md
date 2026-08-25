@@ -4,6 +4,20 @@ The chatbot answers questions about blood bank records by pulling a snapshot
 from `node-backend`'s API and reasoning over it with a **local, offline**
 LLM (Ollama) — nothing here calls out to any cloud AI service.
 
+> **Deploying via Docker instead?** This file describes running the chatbot
+> natively on a developer machine — the original, still-supported local
+> workflow. For the actual offline release, `rag-chatbot` and `ollama` are
+> real, optional Docker Compose services (see `docker-compose.yml`'s
+> `rag-chatbot` profile and `documentation/INSTALL_OFFLINE.md`'s "Enabling
+> the optional RAG chatbot" — enabled via
+> `docker compose --profile rag-chatbot up -d`). In that path, models are
+> baked into the `ollama` image ahead of time
+> (`scripts/export_ollama_models.sh`) rather than pulled by hand, and the
+> chatbot binds to `0.0.0.0`/reaches `ollama` and `backend` by their
+> internal Compose service names rather than `127.0.0.1`/manual `.env`
+> reading — the "Local only" / `127.0.0.1`-binding limitation below does
+> **not** apply to the Docker deployment.
+
 Two layers of setup, and it matters which one you're missing:
 
 - **Layer 1 (whole system):** `node-backend` has to actually be running and

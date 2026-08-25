@@ -72,4 +72,11 @@ if __name__ == "__main__":
     # taking 45-80s on this CPU-only phi3:mini) queue up back-to-back
     # instead of running concurrently, so a second question can end up
     # waiting on a first one that has nothing to do with it.
-    app.run(host="127.0.0.1", port=5000, debug=False, threaded=True)
+    # host="0.0.0.0": inside the rag-chatbot Docker container, 127.0.0.1
+    # means the container's own loopback -- unreachable from node-backend's
+    # container even over the same Compose network. No auth of its own sits
+    # in front of this (see SETUP.md's documented limitation) -- that's
+    # acceptable only because this service is never published on a host
+    # port; it's reached exclusively via backend's authenticated
+    # /api/rag-chat proxy (see docker-compose.yml).
+    app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)
