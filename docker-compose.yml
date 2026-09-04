@@ -43,9 +43,15 @@ services:
     environment:
       DB_SERVER: sqlserver
       DB_PORT: 1433
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
+      # DATABASE_NAME/DATABASE_USER are computed by the Packager from this
+      # app's own slug at packaging time (source: "fixed" in the
+      # manifest) -- see docs/decisions/database-identity-convention.md
+      # in the Air-Gapped-System-Platform repo. This app's own scripts
+      # still read DB_NAME/DB_USER (their existing, working convention);
+      # only the value source changes.
+      DB_NAME: ${DATABASE_NAME}
+      DB_USER: ${DATABASE_USER}
+      DB_PASSWORD: ${DATABASE_PASSWORD}
       DB_SA_PASSWORD: ${DB_SA_PASSWORD}
     depends_on:
       sqlserver:
@@ -75,9 +81,9 @@ services:
     environment:
       DB_SERVER: sqlserver
       DB_PORT: 1433
-      DB_NAME: ${DB_NAME}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DATABASE_NAME}
+      DB_USER: ${DATABASE_USER}
+      DB_PASSWORD: ${DATABASE_PASSWORD}
       JWT_SECRET: ${JWT_SECRET}
       WHISPER_SERVICE_URL: http://whisper:5001/transcribe
       # rag-chatbot is now a real, optional Compose service (see below,

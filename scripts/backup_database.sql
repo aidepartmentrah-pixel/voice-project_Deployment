@@ -16,8 +16,12 @@
   the .bak file lands outside the SQL Server container.
 */
 
-:setvar DB_NAME "BloodBankDB"
-:setvar BACKUP_PATH "/var/opt/mssql/backup/BloodBankDB.bak"
+-- Deliberately no :setvar defaults here: sqlcmd's own :setvar
+-- unconditionally overwrites a value already passed via -v, so a
+-- hardcoded default would silently discard the real, Packager-computed
+-- DB_NAME/BACKUP_PATH the calling script (release/*/scripts/backup_database.sh)
+-- always passes -- see database/sqlserver/install/001_create_database.sql's
+-- own comment for the full reasoning (same real, latent bug shape).
 
 BACKUP DATABASE [$(DB_NAME)]
 TO DISK = N'$(BACKUP_PATH)'

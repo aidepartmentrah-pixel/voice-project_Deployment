@@ -6,7 +6,12 @@
   post-restore.
 */
 
-:setvar DB_NAME "BloodBankDB"
+-- Deliberately no :setvar default here: sqlcmd's own :setvar
+-- unconditionally overwrites a value already passed via -v, so a
+-- hardcoded default would silently discard the real, Packager-computed
+-- DB_NAME install_database.sh/.ps1 always pass -- see
+-- database/sqlserver/install/001_create_database.sql's own comment for
+-- the full reasoning (same real, latent bug shape).
 USE [$(DB_NAME)];
 GO
 

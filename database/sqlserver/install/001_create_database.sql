@@ -19,7 +19,18 @@
   existing login's password as a side effect).
 */
 
-:setvar DB_NAME "BloodBankDB"
+-- Deliberately no `:setvar DB_NAME` default here: sqlcmd's own `:setvar`
+-- unconditionally overwrites a value already passed via `-v` (the two
+-- don't merge -- whichever runs last wins), so a hardcoded default here
+-- would silently discard install_database.sh's own `-v DB_NAME=...`
+-- every single time, regardless of what the real, Packager-computed
+-- DB_NAME actually is. Invisible while DB_NAME always happened to equal
+-- "BloodBankDB"; a real, latent bug the Consistent Database Identity
+-- work's own derived value (voice_project, not BloodBankDB) would have
+-- triggered on the very first install. install_database.sh already
+-- enforces DB_NAME is set (`: "${DB_NAME:?DB_NAME is required}"`) before
+-- ever invoking this script, so there is no real standalone-execution
+-- case this default was actually protecting.
 
 IF DB_ID(N'$(DB_NAME)') IS NULL
 BEGIN
