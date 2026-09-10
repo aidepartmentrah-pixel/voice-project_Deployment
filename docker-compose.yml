@@ -178,8 +178,14 @@ services:
       - ${DEPLOY_NGINX_CONF_PATH:-./nginx/nginx.conf}:/etc/nginx/nginx.conf:ro
       - ${DEPLOY_NGINX_CERTS_PATH:-./nginx/certs}:/etc/nginx/certs:ro
     ports:
-      - "80:80"
-      - "443:443"
+      # HOST-side ports only. 80/443 are the defaults, but on a shared
+      # offline host already running another project's own web frontend,
+      # those will already be taken -- real, live-confirmed collision,
+      # 2026-08-25 (same fix already applied to this app's own
+      # release-variant compose file; this file just never got it, being
+      # the one the Packager actually reads).
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
     depends_on:
       backend:
         condition: service_healthy
