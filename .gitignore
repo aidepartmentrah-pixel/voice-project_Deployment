@@ -55,3 +55,8 @@ assets/ollama-models/
 
 # Packager output — fully generated, never hand-authored
 /release_packager/
+
+# Packager's own local bookkeeping for this app — same convention every
+# other real app repo in this fleet already uses (e.g. HCopilot's own
+# /.rah/ entry), not committed.
+/.rah/
