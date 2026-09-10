@@ -13,7 +13,21 @@ services:
       MSSQL_PID: Express
     volumes:
       - sqlserver_data:/var/opt/mssql
-      - ./backups:/var/opt/mssql/backup
+      # BACKUPS_HOST_PATH/DEPLOY_DATABASE_PATH/DEPLOY_SCRIPTS_PATH: a plain
+      # relative path here resolves against wherever `docker compose` is
+      # invoked from, not always this file's own directory -- when
+      # DEPLOY_DIR differs from RELEASE_DIR (Platform-driven), install_offline.sh
+      # copies database/scripts into DEPLOY_DIR (not DEPLOY_DIR/<this
+      # file's dir>) and exports these exact env vars for that reason.
+      # Real, live-confirmed bug class, 2026-08-25 (see install_offline.sh's
+      # own comment) -- silently bind-mounted an empty directory for
+      # database/scripts, hard-failed for nginx.conf, on this app's own
+      # release-variant compose file before it was fixed there; this is
+      # the same fix, applied to the file the Packager actually reads
+      # (docker_inspection.py only ever inspects the repo ROOT compose
+      # file, never release/<version>/compose/ -- confirmed the hard way
+      # against STT-SCHEDULE the same night).
+      - ${BACKUPS_HOST_PATH:-./backups}:/var/opt/mssql/backup
       # Read-only access to the SQL Server Database Package so
       # verify_installation.sh/backup_database.sh/restore_database.sh can
       # exec sqlcmd against it directly. database/ and scripts/ are mounted
@@ -21,8 +35,8 @@ services:
       # relationship verify_database.sql's ":r ../database/..." includes
       # already assume (this container has none of our files otherwise —
       # it's the untouched official Microsoft image).
-      - ./database:/opt/dbpkg/database:ro
-      - ./scripts:/opt/dbpkg/scripts:ro
+      - ${DEPLOY_DATABASE_PATH:-./database}:/opt/dbpkg/database:ro
+      - ${DEPLOY_SCRIPTS_PATH:-./scripts}:/opt/dbpkg/scripts:ro
     ports:
       # Exposed for optional GUI access (DBeaver/SSMS/Azure Data Studio) —
       # not required for the app itself, which reaches sqlserver over the
@@ -157,8 +171,12 @@ services:
   nginx:
     image: nginx:1.27-alpine
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/certs:/etc/nginx/certs:ro
+      # Same real, live-confirmed reason as DEPLOY_DATABASE_PATH/
+      # DEPLOY_SCRIPTS_PATH above -- see install_offline.sh's own comment
+      # (2026-08-25: a relative path here resolved to an empty directory
+      # under Platform-driven deploys, hard-failing nginx entirely).
+      - ${DEPLOY_NGINX_CONF_PATH:-./nginx/nginx.conf}:/etc/nginx/nginx.conf:ro
+      - ${DEPLOY_NGINX_CERTS_PATH:-./nginx/certs}:/etc/nginx/certs:ro
     ports:
       - "80:80"
       - "443:443"
